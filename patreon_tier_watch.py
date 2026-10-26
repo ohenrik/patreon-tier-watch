@@ -69,12 +69,9 @@ def tiers(cid):
 
 def describe(a):
     price = (a.get("amount_cents") or 0) / 100
-    limit, rem = a.get("user_limit"), a.get("remaining")
-    if "user_limit" not in a and "remaining" not in a:
-        status = "limit fields not returned"
-    else:
-        status = "unlimited" if limit is None else (
-            "SOLD OUT" if rem == 0 else f"{rem} of {limit} available")
+    # Patreon omits user_limit publicly; `remaining` is the signal (null = unlimited).
+    rem = a.get("remaining")
+    status = "unlimited" if rem is None else ("SOLD OUT" if rem == 0 else f"{rem} available")
     return f"{a['title']:<40} {price:>8.2f} {a.get('currency') or ''}  {status}"
 
 
