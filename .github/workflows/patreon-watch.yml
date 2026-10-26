@@ -8,6 +8,11 @@ on:
   schedule:
     - cron: "*/5 * * * *"
   workflow_dispatch:
+    inputs:
+      test_notify:
+        description: "Send a test notification with the current tier status"
+        type: boolean
+        default: true
 
 permissions:
   issues: write
@@ -54,3 +59,22 @@ jobs:
               --body-file body.md \
               --assignee "${{ github.repository_owner }}"
           fi
+
+      - name: Test notification (manual runs only)
+        if: github.event_name == 'workflow_dispatch' && inputs.test_notify
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          {
+            echo "Test notification. Current tier status:"
+            echo
+            echo '```'
+            cat out.txt
+            echo '```'
+            echo
+            echo "Close this issue; it does not affect the real alert."
+          } > test.md
+          gh issue create \
+            --title "Test: tier status $(date -u '+%Y-%m-%d %H:%M UTC')" \
+            --body-file test.md \
+            --assignee "${{ github.repository_owner }}"
