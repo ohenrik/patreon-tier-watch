@@ -48,7 +48,7 @@ jobs:
           open=$(gh issue list --state open --search "Merchant tier available in:title" --json number --jq length)
           if [ "$open" = "0" ]; then
             {
-              echo "A Merchant tier has open slots: https://www.patreon.com/cw/highlands_miniatures/membership"
+              echo "@${{ github.repository_owner }} A Merchant tier has open slots: https://www.patreon.com/cw/highlands_miniatures/membership"
               echo
               echo '```'
               cat out.txt
@@ -66,7 +66,7 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           {
-            echo "Test notification. Current tier status:"
+            echo "@${{ github.repository_owner }} Test notification. Current tier status:"
             echo
             echo '```'
             cat out.txt
