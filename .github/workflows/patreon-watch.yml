@@ -27,7 +27,7 @@ jobs:
         id: watch
         run: |
           set +e
-          python3 patreon_tier_watch.py --match merchant | tee out.txt
+          python3 patreon_tier_watch.py --match merchant --debug | tee out.txt
           code=${PIPESTATUS[0]}
           echo "code=$code" >> "$GITHUB_OUTPUT"
           if [ "$code" != "0" ] && [ "$code" != "3" ]; then

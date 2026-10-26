@@ -20,6 +20,7 @@ import urllib.parse
 import urllib.request
 
 VANITY = "highlands_miniatures"
+DEBUG = False
 UA = ("Mozilla/5.0 (Macintosh; Intel Mac OS X 14_0) AppleWebKit/537.36 "
       "(KHTML, like Gecko) Chrome/126.0 Safari/537.36")
 
@@ -52,17 +53,14 @@ def campaign_id(vanity):
 
 
 def tiers(cid):
-    q = urllib.parse.urlencode({
-        "include": "rewards",
-        "fields[reward]": "title,amount_cents,currency,user_limit,remaining,patron_count,published",
-        "json-api-version": "1.0",
-    })
+    # No sparse fieldset: request every public reward attribute.
+    q = urllib.parse.urlencode({"include": "rewards", "json-api-version": "1.0"})
     data = json.loads(get(f"https://www.patreon.com/api/campaigns/{cid}?{q}"))
     out = []
     for inc in data.get("included", []):
         if inc.get("type") != "reward":
             continue
-        a = inc["attributes"]
+        a = dict(inc["attributes"], id=inc.get("id"))
         if not a.get("title") or a.get("published") is False:
             continue
         out.append(a)
@@ -72,8 +70,11 @@ def tiers(cid):
 def describe(a):
     price = (a.get("amount_cents") or 0) / 100
     limit, rem = a.get("user_limit"), a.get("remaining")
-    status = "unlimited" if limit is None else (
-        "SOLD OUT" if rem == 0 else f"{rem} of {limit} available")
+    if "user_limit" not in a and "remaining" not in a:
+        status = "limit fields not returned"
+    else:
+        status = "unlimited" if limit is None else (
+            "SOLD OUT" if rem == 0 else f"{rem} of {limit} available")
     return f"{a['title']:<40} {price:>8.2f} {a.get('currency') or ''}  {status}"
 
 
@@ -83,6 +84,9 @@ def check(cid, match):
     for a in ts:
         line = describe(a)
         print(line)
+        if DEBUG and match and match.lower() in a["title"].lower():
+            raw = {k: v for k, v in a.items() if k not in ("description",)}
+            print("  raw:", json.dumps(raw, sort_keys=True))
         if match and match.lower() in a["title"].lower() and a.get("remaining"):
             hits.append(line)
     return hits
@@ -95,7 +99,10 @@ def main():
     p.add_argument("--match", help="substring of tier title to watch, e.g. 'merchant'")
     p.add_argument("--loop", type=int, help="poll every N seconds")
     p.add_argument("--ntfy", help="ntfy.sh topic URL to push a notification to")
+    p.add_argument("--debug", action="store_true", help="print raw attributes of matched tiers")
     args = p.parse_args()
+    global DEBUG
+    DEBUG = args.debug
 
     cid = args.campaign_id or campaign_id(args.vanity)
     print(f"campaign id: {cid}\n")
