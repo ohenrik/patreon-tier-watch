@@ -1,0 +1,56 @@
+# Place at .github/workflows/patreon-watch.yml, with patreon_tier_watch.py in the repo root.
+# Opens an issue assigned to the repo owner (push notification in the GitHub app)
+# when a Merchant tier has open slots. Close the issue to re-arm the alert.
+# If Patreon blocks the request, the run fails and GitHub notifies you of the failure.
+name: Patreon merchant tier watch
+
+on:
+  schedule:
+    - cron: "*/5 * * * *"
+  workflow_dispatch:
+
+permissions:
+  issues: write
+
+concurrency:
+  group: patreon-watch
+  cancel-in-progress: true
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Check tiers
+        id: watch
+        run: |
+          set +e
+          python3 patreon_tier_watch.py --match merchant | tee out.txt
+          code=${PIPESTATUS[0]}
+          echo "code=$code" >> "$GITHUB_OUTPUT"
+          if [ "$code" != "0" ] && [ "$code" != "3" ]; then
+            echo "::error::Request failed (exit $code), Patreon may be blocking this runner"
+            exit 1
+          fi
+
+      - name: Open alert issue
+        if: steps.watch.outputs.code == '0'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          open=$(gh issue list --state open --search "Merchant tier available in:title" --json number --jq length)
+          if [ "$open" = "0" ]; then
+            {
+              echo "A Merchant tier has open slots: https://www.patreon.com/cw/highlands_miniatures/membership"
+              echo
+              echo '```'
+              cat out.txt
+              echo '```'
+            } > body.md
+            gh issue create \
+              --title "Merchant tier available" \
+              --body-file body.md \
+              --assignee "${{ github.repository_owner }}"
+          fi
